@@ -141,7 +141,7 @@ void gameloop() {
       if (direction == 1 || direction == 3) usleep(SPEED / 2.5);
     }
   }
-}
+};
 
 void new_snake() {
   coord front = {WIDTH / 2, HEIGHT / 2};
@@ -154,10 +154,11 @@ void new_snake() {
 
 void init_ncurses() {
   initscr();
-  cbreak();
-  noecho();
+  cbreak();              // no line buffering
+  noecho();              // don't echo keypresses
   keypad(stdscr, TRUE);  // make keys work
   curs_set(0);           // hide cursor
+  halfdelay(1);          // wait for 1 char
 
   /* Get all the mouse events */
   mousemask(ALL_MOUSE_EVENTS, NULL);
@@ -176,7 +177,9 @@ int main() {
 
   new_game();
 
-  delwin(stdscr);
-  endwin();
-  nocbreak();
+  Field game;
+  game.reset();
+  game.gameloop();
+
+  close_ncurses();
 }
