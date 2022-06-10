@@ -184,8 +184,7 @@ void init_ncurses() {
   keypad(stdscr, TRUE);  // make keys work
   curs_set(0);           // hide cursor
 
-  // Get all the mouse events
-  mousemask(ALL_MOUSE_EVENTS, NULL);
+  mousemask(ALL_MOUSE_EVENTS, NULL);  // Get all the mouse events
   timeout(100);
 
   nodelay(stdscr, TRUE);
