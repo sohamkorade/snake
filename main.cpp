@@ -4,128 +4,162 @@
 
 using namespace std;
 
-typedef struct {
-  short id;       /* ID to distinguish multiple devices */
-  int x, y, z;    /* event coordinates */
-  mmask_t bstate; /* button state bits */
-} mouseevent;
+struct mouseevent {
+  short id;        // ID to distinguish multiple devices
+  int x, y, z;     // event coordinates
+  mmask_t bstate;  // button state bits
+};
 
-const int SPEED = 100000;
-int score = 0;
+enum ItemType { Food, Poison, Turbo, Magnet };
+enum Direction { East, North, West, South };
+
+struct Pixel {
+  int x, y;
+};
+
+struct Item {
+  char type;
+  Pixel pixel;
+};
+
+struct Snake {
+  deque<Pixel> body;
+  ItemType powerup = Food;
+  int turbo = 0;
+  bool magnet = false;
+  int score = 0;
+  int speed = 100000;
+  Direction direction = East;
+
+  void reset() {
+    body.clear(), turbo = 0, score = 0, magnet = false;
+
+    Pixel front = {WIDTH / 2, HEIGHT / 2};
+    for (int i = 0; i < 10; i++) {
+      body.push_front(front);
+      front.x++;
+    }
+  }
+
+  Pixel get_next_pixel() {
+    Pixel front = body.front();
+    if (direction == 0) front.x++;
+    if (direction == 1) front.y--;
+    if (direction == 2) front.x--;
+    if (direction == 3) front.y++;
+    return front;
+  }
+};
+
 int WIDTH = 60, HEIGHT = 20;
-typedef pair<int, int> coord;
 
-int direction = 0;
+struct Field {
+  Snake snake;
+  set<Item> items;
 
-deque<coord> snake;
-set<coord> food;
-set<pair<char, coord>> specials;
-int turbo = 0;
-
-void new_snake();
-void new_food();
-void gameloop();
-
-void new_game() {
-  score = 0;
-  turbo = 0;
-  new_snake();
-  food.clear();
-  specials.clear();
-  for (int i = 0; i < 10; i++) new_food();
-  gameloop();
-}
-
-void display() {
-  getmaxyx(stdscr, HEIGHT, WIDTH);
-  clear();
-  box(stdscr, 0, 0);
-  attron(COLOR_PAIR(1));
-  for (auto &x : snake) mvaddch(x.second, x.first, ' ');
-  attroff(COLOR_PAIR(1));
-
-  attron(COLOR_PAIR(2));
-  for (auto x : food) mvaddch(x.second, x.first, 'O');
-  for (auto x : specials) mvaddch(x.second.second, x.second.first, x.first);
-  attroff(COLOR_PAIR(2));
-
-  attron(COLOR_PAIR(3));
-  mvprintw(0, 0, "Score: %d", score);
-  attroff(COLOR_PAIR(3));
-
-  if (turbo > 0) {
-    attron(COLOR_PAIR(4));
-    mvaddch(snake[0].second, snake[0].first, ' ');
-    for (int i = 0; i < turbo; i++) mvaddch(HEIGHT - 1, i, ' ');
-    attroff(COLOR_PAIR(4));
-    turbo--;
+  void reset() {
+    snake.score = 0;
+    snake.reset();
+    items.clear();
+    for (int i = 0; i < 10; i++) spawn_item();
+    gameloop();
   }
 
-  refresh();
-}
+  void game_over() {
+    mvprintw(HEIGHT / 2, WIDTH / 2 - 10, "Game Over!");
+    refresh();
+    sleep(2);
+    reset();
+  }
 
-coord get_next_square() {
-  coord front = snake.front();
-  if (direction == 0) front.first++;
-  if (direction == 1) front.second--;
-  if (direction == 2) front.first--;
-  if (direction == 3) front.second++;
-  return front;
-}
+  void display() {
+    getmaxyx(stdscr, HEIGHT, WIDTH);
+    clear();
+    box(stdscr, 0, 0);
+    attron(COLOR_PAIR(1));
+    for (auto &part : snake.body) mvaddch(part.y, part.x, ' ');
+    attroff(COLOR_PAIR(1));
 
-void game_over() {
-  mvprintw(HEIGHT / 2, WIDTH / 2, "Game Over!");
-  refresh();
-  sleep(2);
-  new_game();
-}
+    attron(COLOR_PAIR(2));
+    for (auto item : items) mvaddch(item.type, item.pixel.x, item.pixel.y);
+    attroff(COLOR_PAIR(2));
 
-void add_head() {
-  coord front = get_next_square();
-  if (front.first < 0 || front.first >= WIDTH || front.second < 0 ||
-      front.second >= HEIGHT ||
-      find(snake.begin(), snake.end(), front) != snake.end()) {
-    game_over();
-  } else if (food.find(front) != food.end()) {
-    food.erase(front);
-    score++;
+    attron(COLOR_PAIR(3));
+    mvprintw(0, 0, "Score: %d", snake.score);
+    attroff(COLOR_PAIR(3));
+
+    if (snake.turbo > 0) {
+      attron(COLOR_PAIR(4));
+      mvaddch(snake.body[0].y, snake.body[0].x, ' ');
+      for (int i = 0; i < snake.turbo; i++) mvaddch(HEIGHT - 1, i, ' ');
+      attroff(COLOR_PAIR(4));
+      snake.turbo--;
+    }
+
+    refresh();
+  }
+
+  void add_head() {
+    Pixel front = snake.get_next_pixel();
+    if (front.x < 0 || front.x >= WIDTH || front.y < 0 || front.y >= HEIGHT ||
+        find(snake.body.begin(), snake.body.end(), front) != snake.body.end()) {
+      game_over();
+    } else if (items.find({'O', front}) != items.end()) {
+      items.erase({'O', front});
+      snake.score++;
+      add_head();
+      spawn_item();
+    } else if (items.find({'T', front}) != items.end()) {
+      snake.turbo += 50;
+      items.erase({'T', front});
+    }
+
+    for (auto &item : items) {
+      if (item.type == 'M' && distance(item.pixel, front) <= 5) {
+        auto temp(item);
+        temp.pixel.x += front.x - temp.pixel.x;
+        temp.pixel.y += front.y - temp.pixel.y;
+
+        items.erase(item);
+        items.insert(temp);
+      }
+    }
+
+    snake.body.push_front(front);
+  }
+
+  void move_snake() {
     add_head();
-    new_food();
-  } else if (specials.find({'T', front}) != specials.end()) {
-    turbo += 50;
-    specials.erase({'T', front});
+    snake.body.pop_back();
   }
 
-  snake.push_front(front);
-}
+  void spawn_item() {
+    Pixel front = {rand() % (WIDTH - 2) + 1, rand() % (HEIGHT - 2) + 1};
 
-void move_snake() {
-  add_head();
-  snake.pop_back();
-}
-
-void new_food() {
-  coord front = {rand() % (WIDTH - 2) + 1, rand() % (HEIGHT - 2) + 1};
-  food.insert(front);
-  if (rand() % 10 == 0) {
-    specials.insert({'T', front});
+    int random = rand() % 10;
+    if (random == 0)
+      items.insert({'T', front});
+    else if (random == 1)
+      items.insert({'M', front});
+    else
+      items.insert({'O', front});
   }
-}
+};
+
+Field game;
+
+int distance(Pixel a, Pixel b) { return abs(a.x - b.x) + abs(a.y - b.y); }
 
 void get_direction(int x = 99) {
   MEVENT event;
 
   int ch = getch();
-  // if (x == 0) ch = KEY_UP;
-  // if (x == 1) ch = KEY_LEFT;
-  // if (x == 2) ch = KEY_DOWN;
-  // if (x == 3) ch = KEY_RIGHT;
-  if (ch == KEY_UP && direction != 3) direction = 1;
-  if (ch == KEY_LEFT && direction != 0) direction = 2;
-  if (ch == KEY_DOWN && direction != 1) direction = 3;
-  if (ch == KEY_RIGHT && direction != 2) direction = 0;
+  if (ch == KEY_UP && direction != South) direction = North;
+  if (ch == KEY_LEFT && direction != East) direction = West;
+  if (ch == KEY_DOWN && direction != North) direction = South;
+  if (ch == KEY_RIGHT && direction != West) direction = East;
   if (ch == KEY_MOUSE && getmouse(&event) == OK)
-    if (event.bstate & BUTTON1_CLICKED) food.insert({event.x, event.y});
+    if (event.bstate & BUTTON1_CLICKED) items.insert({'O', {event.x, event.y}});
 }
 
 void gameloop() {
@@ -133,22 +167,13 @@ void gameloop() {
     display();
     get_direction();
     move_snake();
-    if (turbo > 0) {
-      usleep(SPEED / 2);
-      if (direction == 1 || direction == 3) usleep(SPEED / 2 / 2.5);
+    if (snake.turbo > 0) {
+      usleep(speed / 2);
+      if (direction == 1 || direction == 3) usleep(speed / 2 / 2.5);
     } else {
-      usleep(SPEED);
-      if (direction == 1 || direction == 3) usleep(SPEED / 2.5);
+      usleep(speed);
+      if (direction == 1 || direction == 3) usleep(speed / 2.5);
     }
-  }
-}
-
-void new_snake() {
-  coord front = {WIDTH / 2, HEIGHT / 2};
-  snake.clear();
-  for (int i = 0; i < 10; i++) {
-    snake.push_front(front);
-    front.first++;
   }
 }
 
@@ -159,21 +184,21 @@ void init_ncurses() {
   keypad(stdscr, TRUE);  // make keys work
   curs_set(0);           // hide cursor
 
-  /* Get all the mouse events */
+  // Get all the mouse events
   mousemask(ALL_MOUSE_EVENTS, NULL);
   timeout(100);
-}
 
-int main() {
-  srand(time(0));
-  init_ncurses();
   nodelay(stdscr, TRUE);
   start_color();
   init_pair(1, COLOR_GREEN, COLOR_GREEN);
   init_pair(2, COLOR_RED, COLOR_BLACK);
   init_pair(3, COLOR_YELLOW, COLOR_BLACK);
   init_pair(4, COLOR_YELLOW, COLOR_YELLOW);
+}
 
+int main() {
+  srand(time(0));
+  init_ncurses();
   new_game();
 
   delwin(stdscr);
