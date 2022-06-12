@@ -112,8 +112,27 @@ void new_food() {
   }
 }
 
-void get_direction(int x = 99) {
-  MEVENT event;
+  void handle_events() {
+    MEVENT event;
+    int ch = getch();
+    if (ch == KEY_UP && snake.direction != South) snake.direction = North;
+    if (ch == KEY_LEFT && snake.direction != East) snake.direction = West;
+    if (ch == KEY_DOWN && snake.direction != North) snake.direction = South;
+    if (ch == KEY_RIGHT && snake.direction != West) snake.direction = East;
+    if (ch == KEY_MOUSE && getmouse(&event) == OK)
+      if (event.bstate & BUTTON1_CLICKED)
+        items.insert({Food, {event.x, event.y}});
+    if (ch == 'q') snake.alive = false;
+    if (ch == 'p') pause_game();
+
+    if (CHEATS) {
+      if (ch == 'f') snake.fast += 50;
+      if (ch == 's') snake.slow += 50;
+      if (ch == 'm') snake.magnet += 50;
+      if (ch == 'h') snake.shield += 50;
+      if (ch == 'r') snake.reverse();
+    }
+  }
 
   int ch = getch();
   // if (x == 0) ch = KEY_UP;
