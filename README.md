@@ -3,7 +3,7 @@
 # snake
 A Snake clone in C++ that uses `ncurses` library.
 
-<div align="center"><img src="screenshot.png" alt="screenshot" height="400"/></div>
+<div align="center"><img src="screenshot.png" alt="screenshot"/></div>
 
 # Quickstart
 * On Ubuntu-based systems
