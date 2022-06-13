@@ -1,7 +1,17 @@
+<img src="logo.png" alt="logo" width="50" style="float"/>
+
 # snake
 A Snake clone in C++ that uses `ncurses` library.
 
-# How to compile
+<div align="center"><img src="screenshot.png" alt="screenshot" height="400"/></div>
+
+# Quickstart
+* On Ubuntu-based systems
+    ```
+    $ ./snake
+    ```
+
+# Compiling
 * On Ubuntu-based systems
 
     1. Install `ncurses` library.
@@ -18,5 +28,6 @@ A Snake clone in C++ that uses `ncurses` library.
         ```
         $ ./snake
         ```
+
 # Credits
 * [ncurses](https://invisible-island.net/ncurses/ncurses.html)
